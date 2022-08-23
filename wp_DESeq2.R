@@ -7,6 +7,7 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(DESeq2)
+library(stats)
 
 ## read data
 my_data <- read_excel("1-s2.0-S1074761317300729-mmc2.xlsx", skip=2) %>% data.frame() %>% select("Gene.Names", "WT", "...9","...14","...15")
@@ -36,9 +37,9 @@ write.table(res1, 'control_treat.DESeq2.txt', col.names = NA, sep = '\t', quote 
 # gene filter
 res1 <- res1[order(res1$padj, res1$log2FoldChange, decreasing = c(FALSE, TRUE)), ]
 
-res1[which(res1$log2FoldChange >= 1 & res1$padj < 0.05),'sig'] <- 'up'
-res1[which(res1$log2FoldChange <= -1 & res1$padj < 0.05),'sig'] <- 'down'
-res1[which(abs(res1$log2FoldChange) <= 1 | res1$padj >= 0.05),'sig'] <- 'none'
+res1[which(res1$log2FoldChange >= 0.5 & res1$padj < 0.05),'sig'] <- 'up'
+res1[which(res1$log2FoldChange <= -0.5 & res1$padj < 0.05),'sig'] <- 'down'
+res1[which(abs(res1$log2FoldChange) <= 0.5 | res1$padj >= 0.05),'sig'] <- 'none'
 
 # overall differential expression gene
 res1_select <- subset(res1, sig %in% c('up', 'down'))
@@ -72,25 +73,25 @@ df <- read_excel("1-s2.0-S1074761317300729-mmc2.xlsx", skip=2) %>%
   select("Gene.Names", "ANOVA.P.values", "BH.FDR") %>% 
   drop_na()
 
+# jaccard index within selected protein and anova_id
+selected_id <- seq(1, 1704, 1)
 
-df_select <- subset(df, ANOVA.P.values < 0.01)
-
-anova_id <- rownames(df_select)
 deseq2_id <- rownames(res1_select)
 
-# jaccard index within deseq2 and anova_id
-intersect1 <- intersect(anova_id, deseq2_id)
-union1 <- union(anova_id, deseq2_id)
+intersect1 <- intersect(deseq2_id, selected_id)
+union1 <- union(deseq2_id, selected_id)
 
 iou1 <- length(intersect1) / length(union1)
 iou1
 
 # jaccard index within selected protein and anova_id
-selected_id <- seq(1, 1704, 1)
+anova_id <- rownames(subset(df, BH.FDR < 0.05))
+union2 <- union(deseq2_id, anova_id)
 
-intersect2 <- intersect(anova_id, selected_id)
-union2 <- union(anova_id, selected_id)
-
+intersect2 <- intersect(deseq2_id, anova_id)
 iou2 <- length(intersect2) / length(union2)
 iou2
+
+## Q-value
+q_value <- p.adjust(p = df$ANOVA.P.values, method = 'fdr')
 
